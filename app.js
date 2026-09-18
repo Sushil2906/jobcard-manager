@@ -13,13 +13,8 @@ function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
     var action = data.action;
-
-    if (action === "insert") {
-      return insertRow(data);
-    } else if (action === "test") {
-      return jsonResponse({ success: true, message: "Connection successful!" });
-    }
-
+    if (action === "insert") return insertRow(data);
+    if (action === "test")   return jsonResponse({ success: true, message: "Connection successful!" });
     return jsonResponse({ success: false, message: "Unknown action" });
   } catch (err) {
     return jsonResponse({ success: false, message: err.toString() });
@@ -27,11 +22,9 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  var action = e.parameter.action;
-  if (action === "test") {
+  if (e.parameter.action === "test")
     return jsonResponse({ success: true, message: "Connection successful!" });
-  }
-  return jsonResponse({ success: false, message: "Use POST requests for data" });
+  return jsonResponse({ success: false, message: "Use POST for data" });
 }
 
 function insertRow(data) {
@@ -39,63 +32,105 @@ function insertRow(data) {
   var sheetName = data.sheetName || "Sheet1";
   var sheet     = ss.getSheetByName(sheetName);
 
-  if (!sheet) {
+  if (!sheet)
     return jsonResponse({ success: false, message: "Sheet '" + sheetName + "' not found." });
-  }
 
-  // --- Ensure header row exists ---
+  // --- Columns: A=SL.NO  B=JOB CARD NO.  C=JC NO.  D=DATE  E=DESCRIPTION  F=AMOUNT ---
   var lastRow = sheet.getLastRow();
   if (lastRow < 1) {
-    sheet.appendRow(["SL.NO", "JOB CARD NO.", "DATE", "DESCRIPTION", "AMOUNT"]);
+    sheet.appendRow(["SL.NO", "JOB CARD NO.", "JC NO.", "DATE", "DESCRIPTION", "AMOUNT"]);
+    formatHeader(sheet);
     lastRow = 1;
   }
 
-  // --- Build full job card number ---
   var fullJobCardNo = data.prefix + data.jobNumber;
+  var numericPart   = parseInt(data.jobNumber, 10);
 
-  // -------------------------------------------------------
-  // DUPLICATE CHECK: scan column B for matching job card no.
-  // -------------------------------------------------------
+  // --- Duplicate check: scan column B ---
   if (lastRow >= 2) {
-    var existingCards = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
-    for (var r = 0; r < existingCards.length; r++) {
-      if (String(existingCards[r][0]).trim() === fullJobCardNo.trim()) {
+    var existing = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+    for (var r = 0; r < existing.length; r++) {
+      if (String(existing[r][0]).trim() === fullJobCardNo.trim()) {
         return jsonResponse({
-          success: false,
-          duplicate: true,
-          message: "Duplicate entry! Job Card '" + fullJobCardNo + "' already exists in the sheet."
+          success: false, duplicate: true,
+          message: "Duplicate! '" + fullJobCardNo + "' already exists in the sheet."
         });
       }
     }
   }
 
-  // --- Append the new row ---
+  // --- Append new row ---
   sheet.appendRow([
-    0,                        // SL.NO placeholder
-    fullJobCardNo,
-    data.date,
-    data.description,
-    parseFloat(data.amount)
+    0,                       // A: SL.NO (placeholder)
+    fullJobCardNo,           // B: JOB CARD NO. (full with prefix)
+    numericPart,             // C: JC NO. (numeric part only — used for sorting)
+    data.date,               // D: DATE
+    data.description,        // E: DESCRIPTION
+    parseFloat(data.amount)  // F: AMOUNT
   ]);
 
-  // --- Sort data rows by Job Card Number (ascending) ---
-  var totalRows = sheet.getLastRow();
-  if (totalRows > 2) {
-    sheet.getRange(2, 1, totalRows - 1, 5).sort({ column: 2, ascending: true });
+  // --- Sort by column C (JC NO. numeric) ascending — one fast call ---
+  var total = sheet.getLastRow();
+  if (total > 2) {
+    sheet.getRange(2, 1, total - 1, 6).sort({ column: 3, ascending: true });
   }
 
-  // --- Recalculate SL.NO sequentially ---
+  // --- Batch-update SL.NO (single write = much faster than row-by-row) ---
   var finalLastRow = sheet.getLastRow();
-  for (var i = 2; i <= finalLastRow; i++) {
-    sheet.getRange(i, 1).setValue(i - 1);
+  var slValues = [];
+  for (var i = 2; i <= finalLastRow; i++) slValues.push([i - 1]);
+  if (slValues.length > 0) {
+    sheet.getRange(2, 1, slValues.length, 1).setValues(slValues);
   }
+
+  // --- Apply cell formatting in bulk ---
+  applyFormatting(sheet, finalLastRow);
 
   return jsonResponse({
     success: true,
-    message: "Inserted and sorted successfully!",
+    message: "Inserted and sorted!",
     jobCardNo: fullJobCardNo,
     slNo: finalLastRow - 1
   });
+}
+
+// ---- Format the header row ----
+function formatHeader(sheet) {
+  var h = sheet.getRange(1, 1, 1, 6);
+  h.setFontWeight("bold");
+  h.setHorizontalAlignment("center");
+  h.setVerticalAlignment("middle");
+  h.setBackground("#3c3f8f");
+  h.setFontColor("#ffffff");
+  h.setFontSize(11);
+}
+
+// ---- Apply bulk formatting to all data rows ----
+function applyFormatting(sheet, lastRow) {
+  if (lastRow < 2) return;
+  var rows = lastRow - 1;
+
+  // Center + Middle: SL.NO(1), JOB CARD NO.(2), JC NO.(3), DATE(4), AMOUNT(6)
+  [1, 2, 3, 4, 6].forEach(function(col) {
+    var rng = sheet.getRange(2, col, rows, 1);
+    rng.setHorizontalAlignment("center");
+    rng.setVerticalAlignment("middle");
+  });
+
+  // Left + Middle + Wrap text: DESCRIPTION (E=5)
+  var desc = sheet.getRange(2, 5, rows, 1);
+  desc.setHorizontalAlignment("left");
+  desc.setVerticalAlignment("middle");
+  desc.setWrap(true);
+
+  // AMOUNT (F=6): always 2 decimal places with thousand separator e.g. 1,500.00
+  sheet.getRange(2, 6, rows, 1).setNumberFormat("#,##0.00");
+
+  // DATE format (D=4)
+  sheet.getRange(2, 4, rows, 1).setNumberFormat("dd-mm-yyyy");
+
+  // JC NO. (C=3): plain integer, no decimals
+  sheet.getRange(2, 3, rows, 1).setNumberFormat("0");
 }
 
 function jsonResponse(obj) {
@@ -161,8 +196,8 @@ function showToast(message, type = 'info', duration = 3500) {
 //  CONNECTION STATUS
 // ============================================================
 function setConnectionStatus(state) {
-  const badge    = document.getElementById('connectionStatus');
-  const textEl   = document.getElementById('statusText');
+  const badge  = document.getElementById('connectionStatus');
+  const textEl = document.getElementById('statusText');
   badge.className = `status-badge status-${state}`;
   const labels = { disconnected: 'Not Connected', connected: 'Connected', testing: 'Testing...' };
   textEl.textContent = labels[state] || state;
@@ -199,7 +234,6 @@ function renderLog() {
   }
 
   list.innerHTML = '';
-  // Show newest first
   [...log].reverse().forEach(entry => {
     const row = document.createElement('div');
     row.className = 'entry-row';
@@ -230,7 +264,7 @@ function escHtml(str) {
 // ============================================================
 async function sendToSheet(payload) {
   const settings = loadSettings();
-  const url = settings.scriptUrl;
+  const url = settings.scriptUrl || DEFAULT_SCRIPT_URL;
 
   if (!url) throw new Error('Script URL not configured. Please go to Settings.');
 
@@ -241,8 +275,7 @@ async function sendToSheet(payload) {
   });
 
   if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-  const result = await response.json();
-  return result;
+  return await response.json();
 }
 
 // ============================================================
@@ -275,7 +308,6 @@ async function testConnection() {
 //  PING SCRIPT  (shared by auto-connect + manual test)
 // ============================================================
 async function pingScript(url) {
-  // Try GET first (no CORS preflight), fall back to POST
   try {
     const resp = await fetch(url + '?action=test', { method: 'GET' });
     return await resp.json();
@@ -302,7 +334,6 @@ async function autoConnect(url) {
       setConnectionStatus('disconnected');
     }
   } catch {
-    // Network issue — keep showing disconnected but don't alert
     setConnectionStatus('disconnected');
   }
 }
@@ -331,7 +362,7 @@ async function insertEntry(e) {
   // --------------------------------------------------------
   // FRONT-END DUPLICATE CHECK against local session log
   // --------------------------------------------------------
-  const existingLog = loadLog();
+  const existingLog  = loadLog();
   const alreadyInLog = existingLog.some(
     entry => entry.success && entry.jobCardNo === fullJobCardNo
   );
@@ -345,10 +376,10 @@ async function insertEntry(e) {
   }
 
   // Set loading state
-  const btn      = document.getElementById('insertBtn');
-  const btnText  = document.getElementById('insertBtnText');
-  const spinner  = document.getElementById('insertSpinner');
-  btn.disabled   = true;
+  const btn     = document.getElementById('insertBtn');
+  const btnText = document.getElementById('insertBtnText');
+  const spinner = document.getElementById('insertSpinner');
+  btn.disabled  = true;
   btnText.textContent = 'Inserting...';
   spinner.classList.remove('hidden');
 
@@ -364,7 +395,6 @@ async function insertEntry(e) {
     });
 
     if (result && result.success) {
-      // Save to local log
       const log = loadLog();
       log.push({
         jobCardNo: fullJobCardNo,
@@ -381,14 +411,13 @@ async function insertEntry(e) {
       setConnectionStatus('connected');
 
       // Reset entry fields (keep date & prefix settings)
-      document.getElementById('jobNumber').value  = '';
+      document.getElementById('jobNumber').value   = '';
       document.getElementById('description').value = '';
       document.getElementById('amount').value      = '';
       document.getElementById('jobNumber').focus();
       updatePreview();
 
     } else if (result && result.duplicate) {
-      // Sheet-side duplicate detected
       showToast(
         `⚠️ Duplicate! "${fullJobCardNo}" already exists in the Google Sheet.`,
         'error', 6000
@@ -418,16 +447,16 @@ async function insertEntry(e) {
   }
 }
 
-// Briefly highlight the job number field on duplicate error
+// Highlight job number field red on duplicate error
 function highlightJobNumberField() {
   const el = document.getElementById('jobNumber');
   el.style.borderColor = 'var(--clr-red)';
-  el.style.boxShadow  = '0 0 0 3px rgba(239,68,68,0.25)';
+  el.style.boxShadow   = '0 0 0 3px rgba(239,68,68,0.25)';
   el.focus();
   el.select();
   setTimeout(() => {
     el.style.borderColor = '';
-    el.style.boxShadow  = '';
+    el.style.boxShadow   = '';
   }, 2500);
 }
 
@@ -436,10 +465,10 @@ function highlightJobNumberField() {
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
 
-  // --- Load Apps Script code into the pre element ---
+  // Load Apps Script code into the pre element
   document.getElementById('appsScriptCode').textContent = APPS_SCRIPT_CODE;
 
-  // --- Restore saved settings (merge with defaults) ---
+  // Restore saved settings (merge with defaults)
   const saved = loadSettings();
 
   // If no URL saved yet, inject the pre-configured default and save it
@@ -464,19 +493,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Auto-connect silently on every page load
-  const urlToConnect = settings.scriptUrl || DEFAULT_SCRIPT_URL;
-  autoConnect(urlToConnect);
+  autoConnect(settings.scriptUrl || DEFAULT_SCRIPT_URL);
 
-  // --- Update preview ---
+  // Update preview
   updatePreview();
 
-  // --- Settings toggle ---
+  // Settings toggle
   document.getElementById('settingsToggleBtn').addEventListener('click', () => {
-    const panel = document.getElementById('settingsPanel');
-    panel.classList.toggle('collapsed');
+    document.getElementById('settingsPanel').classList.toggle('collapsed');
   });
 
-  // --- Save settings ---
+  // Save settings
   document.getElementById('saveSettingsBtn').addEventListener('click', () => {
     const newSettings = {
       scriptUrl:    document.getElementById('scriptUrl').value.trim(),
@@ -486,53 +513,47 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     saveSettings(newSettings);
 
-    // Update entry date from default date
     if (newSettings.startingDate) {
       document.getElementById('entryDate').value = newSettings.startingDate;
     }
 
-    // Update prefix display
     document.getElementById('prefixDisplay').textContent = newSettings.jobPrefix || '—';
     updatePreview();
 
     if (newSettings.scriptUrl) setConnectionStatus('connected');
     showToast('✅ Settings saved successfully!', 'success');
-
-    // Collapse after save
     document.getElementById('settingsPanel').classList.add('collapsed');
   });
 
-  // --- Test connection ---
+  // Test connection
   document.getElementById('testConnectionBtn').addEventListener('click', testConnection);
 
-  // --- Prefix live preview ---
+  // Prefix live preview
   document.getElementById('jobPrefix').addEventListener('input', updatePreview);
   document.getElementById('jobNumber').addEventListener('input', updatePreview);
 
-  // --- Entry form submit ---
+  // Entry form submit
   document.getElementById('entryForm').addEventListener('submit', insertEntry);
 
-  // --- Clear form ---
+  // Clear form
   document.getElementById('clearBtn').addEventListener('click', () => {
-    document.getElementById('jobNumber').value  = '';
+    document.getElementById('jobNumber').value   = '';
     document.getElementById('description').value = '';
-    document.getElementById('amount').value     = '';
-    const settings = loadSettings();
-    if (settings.startingDate) {
-      document.getElementById('entryDate').value = settings.startingDate;
-    }
+    document.getElementById('amount').value      = '';
+    const s = loadSettings();
+    if (s.startingDate) document.getElementById('entryDate').value = s.startingDate;
     updatePreview();
     showToast('Form cleared.', 'info', 2000);
   });
 
-  // --- Clear log ---
+  // Clear log
   document.getElementById('clearLogBtn').addEventListener('click', () => {
     localStorage.removeItem(LOG_KEY);
     renderLog();
     showToast('Log cleared.', 'info', 2000);
   });
 
-  // --- Copy Apps Script ---
+  // Copy Apps Script
   document.getElementById('copyScriptBtn').addEventListener('click', () => {
     navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(() => {
       const btn = document.getElementById('copyScriptBtn');
@@ -546,12 +567,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }).catch(() => showToast('Copy failed — please select and copy manually.', 'error'));
   });
 
-  // --- How-to link smooth scroll ---
+  // How-to link smooth scroll
   document.getElementById('howtoLink').addEventListener('click', (e) => {
     e.preventDefault();
     document.getElementById('howto').scrollIntoView({ behavior: 'smooth' });
   });
 
-  // --- Render existing log ---
+  // Render existing log
   renderLog();
 });
