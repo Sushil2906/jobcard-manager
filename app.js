@@ -46,11 +46,11 @@ function insertRow(data) {
   var fullJobCardNo = data.prefix + data.jobNumber;
   var numericPart   = parseInt(data.jobNumber, 10);
 
-  // --- Duplicate check: scan column B ---
+  // --- Duplicate check: scan columns B (Prefix) and C (JC NO.) ---
   if (lastRow >= 2) {
-    var existing = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+    var existing = sheet.getRange(2, 2, lastRow - 1, 2).getValues();
     for (var r = 0; r < existing.length; r++) {
-      if (String(existing[r][0]).trim() === fullJobCardNo.trim()) {
+      if (String(existing[r][0]).trim() === data.prefix.trim() && existing[r][1] == numericPart) {
         return jsonResponse({
           success: false, duplicate: true,
           message: "Duplicate! '" + fullJobCardNo + "' already exists in the sheet."
@@ -62,7 +62,7 @@ function insertRow(data) {
   // --- Append new row ---
   sheet.appendRow([
     0,                       // A: SL.NO (placeholder)
-    fullJobCardNo,           // B: JOB CARD NO. (full with prefix)
+    data.prefix,             // B: JOB CARD NO. (prefix only)
     numericPart,             // C: JC NO. (numeric part only — used for sorting)
     data.date,               // D: DATE
     data.description,        // E: DESCRIPTION
