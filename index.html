@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Card Manager — Auto Google Sheet Filler</title>
+  <meta name="description" content="Automatically fill and manage job card data in Google Sheets with ease. Insert, sort, and track all job cards from one simple interface." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Background decorative blobs -->
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+  <div class="bg-blob blob-3"></div>
+
+  <div class="app-wrapper">
+
+    <!-- ========== HEADER ========== -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <div>
+          <h1 class="app-title">Job Card Manager</h1>
+          <p class="app-subtitle">Auto-fill &amp; sort your Google Sheet</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div id="connectionStatus" class="status-badge status-disconnected">
+          <span class="status-dot"></span>
+          <span id="statusText">Not Connected</span>
+        </div>
+        <button class="btn-icon" id="settingsToggleBtn" title="Settings" aria-label="Open settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ========== SETTINGS PANEL ========== -->
+    <section class="settings-panel" id="settingsPanel">
+      <div class="settings-header">
+        <div class="settings-title-row">
+          <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <h2>Configuration</h2>
+          <span class="settings-badge">One-time Setup</span>
+        </div>
+        <p class="settings-desc">Set these once — they'll be remembered in your browser automatically.</p>
+      </div>
+
+      <div class="settings-body">
+        <div class="settings-grid">
+          <!-- Script URL -->
+          <div class="field-group full-width">
+            <label for="scriptUrl" class="field-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Google Apps Script Web App URL
+            </label>
+            <div class="input-with-action">
+              <input type="url" id="scriptUrl" class="field-input mono-input" placeholder="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec" />
+              <button class="btn-test" id="testConnectionBtn">Test</button>
+            </div>
+            <span class="field-hint">Paste the URL after deploying your Apps Script. <a href="#howto" class="link-subtle" id="howtoLink">How to get this? ↓</a></span>
+          </div>
+
+          <!-- Prefix -->
+          <div class="field-group">
+            <label for="jobPrefix" class="field-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              Job Card Prefix
+            </label>
+            <input type="text" id="jobPrefix" class="field-input mono-input" placeholder="JC/ECMU/IITISM/2026-27/LK/" value="JC/ECMU/IITISM/2026-27/LK/" />
+            <span class="field-hint">This prefix is added before every job card number</span>
+          </div>
+
+          <!-- Starting Date -->
+          <div class="field-group">
+            <label for="startingDate" class="field-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Starting / Default Date
+            </label>
+            <input type="date" id="startingDate" class="field-input" />
+            <span class="field-hint">Auto-filled in the entry form each time</span>
+          </div>
+
+          <!-- Sheet Name -->
+          <div class="field-group">
+            <label for="sheetName" class="field-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Sheet Tab Name
+            </label>
+            <input type="text" id="sheetName" class="field-input" placeholder="Sheet1" value="Sheet1" />
+            <span class="field-hint">The tab name inside your Google Sheet</span>
+          </div>
+        </div>
+
+        <div class="settings-actions">
+          <button class="btn-save" id="saveSettingsBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PREVIEW CARD ========== -->
+    <div class="preview-strip" id="previewStrip">
+      <div class="preview-item">
+        <span class="preview-label">Prefix</span>
+        <span class="preview-value mono" id="previewPrefix">JC/ECMU/IITISM/2026-27/LK/</span>
+      </div>
+      <div class="preview-divider">+</div>
+      <div class="preview-item">
+        <span class="preview-label">Number</span>
+        <span class="preview-value mono" id="previewNumber">12345</span>
+      </div>
+      <div class="preview-divider">=</div>
+      <div class="preview-item highlight">
+        <span class="preview-label">Full Job Card No.</span>
+        <span class="preview-value mono" id="previewFull">JC/ECMU/IITISM/2026-27/LK/12345</span>
+      </div>
+    </div>
+
+    <!-- ========== ENTRY FORM ========== -->
+    <section class="entry-card">
+      <div class="entry-header">
+        <div class="entry-title-row">
+          <svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <h2>New Job Card Entry</h2>
+        </div>
+        <p class="entry-desc">Fill in the details below and click Insert to add to your Google Sheet.</p>
+      </div>
+
+      <form id="entryForm" class="entry-form" autocomplete="off">
+        <div class="form-grid">
+
+          <!-- Job Card Number -->
+          <div class="field-group">
+            <label for="jobNumber" class="field-label required">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              Job Card Number
+            </label>
+            <div class="input-composed">
+              <span class="input-prefix-tag" id="prefixDisplay">JC/ECMU/IITISM/2026-27/LK/</span>
+              <input type="text" id="jobNumber" class="field-input mono-input composed-input" placeholder="12345" required pattern="[0-9]+" title="Enter numeric part only" inputmode="numeric" />
+            </div>
+            <span class="field-hint">Enter only the numeric part — prefix is added automatically</span>
+          </div>
+
+          <!-- Date -->
+          <div class="field-group">
+            <label for="entryDate" class="field-label required">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Date
+            </label>
+            <input type="date" id="entryDate" class="field-input" required />
+            <span class="field-hint">Auto-filled from your default date setting</span>
+          </div>
+
+          <!-- Description -->
+          <div class="field-group full-width">
+            <label for="description" class="field-label required">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              Description
+            </label>
+            <textarea id="description" class="field-input field-textarea" placeholder="Enter job card description..." required rows="3"></textarea>
+          </div>
+
+          <!-- Amount -->
+          <div class="field-group">
+            <label for="amount" class="field-label required">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Amount (₹)
+            </label>
+            <div class="input-with-prefix">
+              <span class="rupee-symbol">₹</span>
+              <input type="number" id="amount" class="field-input amount-input" placeholder="0.00" required min="0" step="0.01" />
+            </div>
+          </div>
+
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="clearBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            Clear
+          </button>
+          <button type="submit" class="btn-insert" id="insertBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span id="insertBtnText">Insert to Sheet</span>
+            <div class="btn-spinner hidden" id="insertSpinner"></div>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ========== RECENT ENTRIES ========== -->
+    <section class="recent-section">
+      <div class="recent-header">
+        <h2 class="recent-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Recent Entries
+        </h2>
+        <button class="btn-clear-log" id="clearLogBtn" title="Clear history">Clear Log</button>
+      </div>
+      <div class="recent-list" id="recentList">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <p>No entries yet. Insert your first job card above!</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== HOW TO SETUP ========== -->
+    <section class="howto-section" id="howto">
+      <div class="howto-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <h2>How to Connect to Google Sheets</h2>
+      </div>
+      <div class="howto-steps">
+        <div class="howto-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Open your Google Sheet</h3>
+            <p>Create a new Google Sheet or open an existing one. Make sure it has these column headers in Row 1:</p>
+            <div class="code-block">SL.NO &nbsp;&nbsp; | JOB CARD NO. &nbsp;&nbsp; | DATE &nbsp;&nbsp; | DESCRIPTION &nbsp;&nbsp; | AMOUNT</div>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Open Apps Script Editor</h3>
+            <p>In your Google Sheet, go to <strong>Extensions → Apps Script</strong>. Delete any existing code.</p>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Paste the Apps Script Code</h3>
+            <p>Copy and paste the script from the box below into the editor and click <strong>Save (Ctrl+S)</strong>.</p>
+            <div class="script-box">
+              <div class="script-box-header">
+                <span>Google Apps Script (Code.gs)</span>
+                <button class="btn-copy" id="copyScriptBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  Copy Script
+                </button>
+              </div>
+              <pre class="script-content" id="appsScriptCode"></pre>
+            </div>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <h3>Deploy as Web App</h3>
+            <p>Click <strong>Deploy → New Deployment</strong>. Choose <strong>Web App</strong>. Set:</p>
+            <ul>
+              <li>Execute as: <strong>Me</strong></li>
+              <li>Who has access: <strong>Anyone</strong></li>
+            </ul>
+            <p>Click <strong>Deploy</strong>, authorize, and copy the Web App URL.</p>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="step-number">5</div>
+          <div class="step-content">
+            <h3>Paste the URL in Settings</h3>
+            <p>Paste that URL in the <strong>Google Apps Script Web App URL</strong> field above, save settings, and you're done! 🎉</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- end .app-wrapper -->
+
+  <!-- ========== TOAST ========== -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
